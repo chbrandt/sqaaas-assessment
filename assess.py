@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 
+import argparse
 import json
 import logging
 import os
@@ -15,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import jinja2
 import requests
 
-logging.basicConfig(level=logging.DEBUG)
+# Default logger (will be reconfigured based on CLI args)
 logger = logging.getLogger("sqaaas-assessment-action")
 
 
@@ -788,13 +789,250 @@ def get_custom_steps() -> Dict[str, List[Dict[str, Any]]]:
     return custom_steps
 
 
-def main() -> None:
-    """Main entry point for the SQAaaS assessment action.
+def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None) -> None:
+    """Configure logging for the application.
+
+    Args:
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
+        log_file: Optional file path to write logs to
+    """
+    level = getattr(logging, log_level.upper(), logging.INFO)
+
+    # Configure root logger
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stderr),
+        ] + ([logging.FileHandler(log_file)] if log_file else [])
+    )
+
+    # Update module logger
+    global logger
+    logger = logging.getLogger("sqaaas-assessment-action")
+    logger.setLevel(level)
+
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command-line arguments.
+
+    Returns:
+        Parsed arguments namespace
+    """
+    parser = argparse.ArgumentParser(
+        prog='sqaaas-assess',
+        description='Run SQAaaS quality assessment on a repository',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  %(prog)s --repo https://github.com/user/repo
+  %(prog)s -r https://github.com/user/repo -b develop -o report.json
+  %(prog)s -r https://github.com/user/repo --log-level DEBUG
+  %(prog)s -r https://github.com/user/repo --summary-file summary.md
+
+Exit Codes:
+  0   - Success
+  1   - Repository not defined
+  2   - Step workflow not found
+  101 - HTTP/API error
+  102 - General error
+
+Environment Variables:
+  SQAAAS_ENDPOINT      - API endpoint (overridden by --endpoint)
+  SQAAAS_TIMEOUT       - Request timeout (overridden by --timeout)
+  SQAAAS_POLL_INTERVAL - Status poll interval (overridden by --poll-interval)
+  SQAAAS_MAX_RETRIES   - Maximum retry attempts (overridden by --max-retries)
+  SQAAAS_RETRY_BACKOFF - Retry backoff multiplier (overridden by --retry-backoff)
+        '''
+    )
+
+    # Required arguments
+    parser.add_argument(
+        '--repo', '-r',
+        type=str,
+        required=True,
+        help='Repository URL to assess (e.g., https://github.com/user/repo)'
+    )
+
+    # Optional arguments
+    parser.add_argument(
+        '--branch', '-b',
+        type=str,
+        help='Branch name to assess (default: main or from git)'
+    )
+    parser.add_argument(
+        '--endpoint', '-e',
+        type=str,
+        default='https://api-staging.sqaaas.eosc-synergy.eu/v1',
+        help='SQAaaS API endpoint (default: %(default)s)'
+    )
+    parser.add_argument(
+        '--output', '-o',
+        type=str,
+        help='Output file for report JSON'
+    )
+    parser.add_argument(
+        '--summary-file', '-s',
+        type=str,
+        help='Write markdown summary to file'
+    )
+    parser.add_argument(
+        '--log-level', '-l',
+        type=str,
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        default='INFO',
+        help='Logging level (default: %(default)s)'
+    )
+    parser.add_argument(
+        '--log-file',
+        type=str,
+        help='Write logs to file'
+    )
+    parser.add_argument(
+        '--timeout', '-t',
+        type=int,
+        default=30,
+        help='Request timeout in seconds (default: %(default)s)'
+    )
+    parser.add_argument(
+        '--poll-interval', '-p',
+        type=int,
+        default=5,
+        help='Status poll interval in seconds (default: %(default)s)'
+    )
+    parser.add_argument(
+        '--max-retries', '-m',
+        type=int,
+        default=3,
+        help='Maximum retry attempts (default: %(default)s)'
+    )
+    parser.add_argument(
+        '--retry-backoff',
+        type=float,
+        default=2.0,
+        help='Retry backoff multiplier (default: %(default)s)'
+    )
+    parser.add_argument(
+        '--steps-file',
+        type=str,
+        help='JSON file with custom QC.Uni steps'
+    )
+    parser.add_argument(
+        '--quiet', '-q',
+        action='store_true',
+        help='Suppress non-error output'
+    )
+    parser.add_argument(
+        '--version', '-v',
+        action='version',
+        version='%(prog)s 1.0.0'
+    )
+
+    return parser.parse_args()
+
+
+def load_steps_from_file(steps_file: str) -> Dict[str, List[Dict[str, Any]]]:
+    """Load custom steps from JSON file.
+
+    Args:
+        steps_file: Path to JSON file containing steps
+
+    Returns:
+        Dictionary mapping criterion IDs to tool configurations
+
+    Raises:
+        FileNotFoundError: If steps file doesn't exist
+        json.JSONDecodeError: If steps file is invalid JSON
+    """
+    if not os.path.exists(steps_file):
+        raise FileNotFoundError(f"Steps file not found: {steps_file}")
+
+    with open(steps_file, 'r') as f:
+        steps_data = json.load(f)
+
+    return {"QC.Uni": [steps_data]}
+
+
+def main_cli() -> None:
+    """CLI entry point for standalone usage."""
+    args = parse_arguments()
+
+    # Configure logging
+    setup_logging(args.log_level, args.log_file)
+
+    if args.quiet:
+        logger.setLevel(logging.ERROR)
+
+    try:
+        # Create configuration from CLI arguments
+        config = SQAaaSConfig(
+            endpoint=args.endpoint,
+            timeout=args.timeout,
+            poll_interval=args.poll_interval,
+            max_retries=args.max_retries,
+            retry_backoff=args.retry_backoff
+        )
+
+        logger.info(f"Starting SQAaaS assessment for repository: {args.repo}")
+
+        # Load custom steps if provided
+        step_tools: Dict[str, List[Dict[str, Any]]] = {}
+        if args.steps_file:
+            logger.info(f"Loading custom steps from: {args.steps_file}")
+            step_tools = load_steps_from_file(args.steps_file)
+
+        # Run assessment
+        sqaaas_report_json = run_assessment(
+            repo=args.repo,
+            branch=args.branch,
+            step_tools=step_tools
+        )
+
+        if not sqaaas_report_json:
+            logger.error("Could not get report data from SQAaaS platform")
+            sys.exit(ExitCode.GENERAL_ERROR.value)
+
+        logger.info("SQAaaS assessment completed successfully")
+
+        # Save report JSON if requested
+        if args.output:
+            with open(args.output, 'w') as f:
+                json.dump(sqaaas_report_json, f, indent=2)
+            logger.info(f"Report JSON saved to: {args.output}")
+
+        # Generate and save summary if requested
+        if args.summary_file:
+            processor = ReportProcessor()
+            summary = processor.generate_summary(sqaaas_report_json)
+            with open(args.summary_file, 'w') as f:
+                f.write(summary)
+            logger.info(f"Summary markdown saved to: {args.summary_file}")
+
+        # Print summary to stdout if not quiet
+        if not args.quiet and not args.output:
+            processor = ReportProcessor()
+            summary = processor.generate_summary(sqaaas_report_json)
+            print(summary)
+
+    except (APIError, PipelineError, RepositoryError) as e:
+        logger.error(f"Assessment error: {e}")
+        sys.exit(ExitCode.HTTP_ERROR.value if isinstance(
+            e, APIError) else ExitCode.GENERAL_ERROR.value)
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        sys.exit(ExitCode.GENERAL_ERROR.value)
+
+
+def main_github_action() -> None:
+    """GitHub Actions entry point (environment variable mode).
 
     Orchestrates the entire assessment process: retrieving repository data,
     loading custom steps, running the assessment, and writing the summary.
     Handles all exceptions and exits with appropriate error codes.
     """
+    # Configure logging for GitHub Actions
+    logging.basicConfig(level=logging.DEBUG)
+
     try:
         repo, branch = get_repo_data()
         if not repo:
@@ -834,6 +1072,16 @@ def main() -> None:
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
         sys.exit(ExitCode.GENERAL_ERROR.value)
+
+
+def main() -> None:
+    """Main entry point - routes to CLI or GitHub Actions mode."""
+    if len(sys.argv) > 1:
+        # CLI mode (arguments provided)
+        main_cli()
+    else:
+        # GitHub Actions mode (environment variables)
+        main_github_action()
 
 
 if __name__ == "__main__":
