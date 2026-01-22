@@ -1,100 +1,320 @@
 <!--
 SPDX-FileCopyrightText: Copyright contributors to the Software Quality Assurance as a Service (SQAaaS) project.
 SPDX-FileContributor: Pablo Orviz <orviz@ifca.unican.es>
+SPDX-FileContributor: Carlos Brandt <chbrandt@gmail.com>
 
 SPDX-License-Identifier: GPL-3.0-only
 -->
 
-[![SQAaaS badge shields.io](https://github.com/EOSC-synergy/sqaaas-assessment-action.assess.sqaaas/raw/release/2.0.0/.badge/status_shields.svg)](https://sqaaas.eosc-synergy.eu/#/full-assessment/report/https://raw.githubusercontent.com/eosc-synergy/sqaaas-assessment-action.assess.sqaaas/release/2.0.0/.report/assessment_output.json)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![REUSE status](https://api.reuse.software/badge/git.fsfe.org/reuse/api)](https://api.reuse.software/info/git.fsfe.org/reuse/api)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-# SQAaaS assessment action
+# SQAaaS Assessment CLI
 
-This action triggers the quality assessment of a source code repository.
+A command-line tool for running software quality assessments using the [SQAaaS platform](https://sqaaas.eosc-synergy.eu). This tool evaluates source code repositories against quality criteria defined in the [EOSC-Synergy Software Quality Baseline](https://indigo-dc.github.io/sqa-baseline/).
 
-## Inputs
+## Features
 
-The inputs below are optional as by default this action will take the current repository and branch.
+- **Automated Quality Assessment**: Run comprehensive quality checks on any Git repository
+- **CLI and GitHub Actions**: Use as a standalone tool or integrate into CI/CD workflows
+- **Configurable**: Customize API endpoints, timeouts, retry behavior, and custom quality steps
+- **Rich Output**: Generate JSON reports, markdown summaries, and quality badges
+- **Robust**: Built-in retry logic and error handling for reliable assessments
 
-### `repo`
+## Installation
 
-The URL of the repository to assess.
+### Requirements
 
-### `branch`
+- Python 3.7 or higher
+- pip
 
-The branch to fetch from the previous repository name. If a branch is not provided, the SQAaaS platform takes the default one.
+### Dependencies
 
-### `qc_uni_steps`
-
-Space-separated list of step identifiers (defined with the [sqaaas-step-action](https://github.com/eosc-synergy/sqaaas-step-action))
-that take part in the assessment of the unit testing quality criterion.
-
-## Outputs
-
-### `report`
-
-JSON payload containing the full QA report.
-
-## Example usage
-
-In most cases, one would use the action in order to run the SQAaaS quality assessment for the repository and branch
-that triggered the action. To this end, you just need to use the action as follows:
-
-```yaml
-uses: eosc-synergy/sqaaas-assessment-action@v2
+```bash
+pip install requests jinja2
 ```
 
-However, if required, the action can be used to assess alternative combinations of repositories and branches. Here, you
-would need to use the optional inputs `repo` and `branch`, such as in:
+Or install from the repository:
 
-```yaml
-uses: eosc-synergy/sqaaas-assessment-action@v2
-with:
-  repo: 'https://github.com/eosc-synergy/sqaaas-assessment-action'
-  branch: 'main'
+```bash
+git clone https://github.com/chbrandt/sqaaas-assessment.git
+cd sqaaas-assessment
+pip install -r requirements.txt  # if requirements.txt exists
 ```
 
-If you want to add a customised step made through the [sqaaas-step-action](https://github.com/eosc-synergy/sqaaas-step-action) use:
+## Quick Start
 
-```yaml
-uses: eosc-synergy/sqaaas-assessment-action@v2
-with:
-  qc_uni_steps: tox_unit_step
+Run a quality assessment on a GitHub repository:
+
+```bash
+python assess.py https://github.com/user/repository
 ```
 
-For this latter case the definiton for the customised step could be similar to (note that step's `name` has to match the value of `qc_uni_steps`):
+Save the report to a file:
 
-```yaml
-uses: eosc-synergy/sqaaas-step-action@v1
-with:
-  name: tox_unit_step
-  tool: tox
-  tox_env: run_unit
+```bash
+python assess.py https://github.com/user/repository --output report.json
 ```
 
-## Report summary
+## Usage
 
-This action provides a summary of the SQAaaS assessment report, as well as the link to the complete version of it:
-![GH action's summary report](./imgs/summary_report.png)
+### Basic Syntax
 
+```bash
+python assess.py <repository-url> [options]
+```
 
-## Dynamic SQAaaS status badge (shields.io-like)
+### Command-Line Options
 
-A status badge can be used when using this action that will be dynamically updated according to the progress of the quality
-assessment performed by the SQAaaS platform.
+#### Required Arguments
 
-The following markdown excerpt shall be modified by adding your repository name (represented as \<repository-name\>):
+- `repo` - Repository URL to assess (e.g., `https://github.com/user/repo`)
+
+#### Optional Arguments
+
+| Option            | Short | Description                                 | Default                                         |
+| ----------------- | ----- | ------------------------------------------- | ----------------------------------------------- |
+| `--branch`        | `-b`  | Branch name to assess                       | main/default branch                             |
+| `--endpoint`      | `-e`  | SQAaaS API endpoint URL                     | `https://api-staging.sqaaas.eosc-synergy.eu/v1` |
+| `--log-file`      |       | Write logs to specified file                | stderr only                                     |
+| `--log-level`     | `-l`  | Logging level (DEBUG, INFO, WARNING, ERROR) | INFO                                            |
+| `--max-retries`   | `-m`  | Maximum retry attempts for API calls        | 3                                               |
+| `--output`        | `-o`  | Save report JSON to file                    | stdout                                          |
+| `--poll-interval` | `-p`  | Status poll interval in seconds             | 5                                               |
+| `--quiet`         | `-q`  | Suppress non-error output                   | false                                           |
+| `--retry-backoff` |       | Retry backoff multiplier                    | 2.0                                             |
+| `--steps-file`    |       | JSON file with custom QC.Uni steps          | none                                            |
+| `--summary-file`  | `-s`  | Write markdown summary to file              | none                                            |
+| `--timeout`       | `-t`  | Request timeout in seconds                  | 60                                              |
+| `--version`       | `-v`  | Show version information                    |                                                 |
+
+### Examples
+
+#### Basic Assessment
+
+Assess the main branch of a repository:
+
+```bash
+python assess.py https://github.com/user/repo
+```
+
+#### Specific Branch
+
+Assess a specific branch (e.g., "that_branch"):
+
+```bash
+python assess.py https://github.com/user/repo --branch that_branch
+```
+
+#### Save Outputs
+
+Save both JSON report and markdown summary:
+
+```bash
+python assess.py https://github.com/user/repo \
+  --output report.json \
+  --summary-file summary.md
+```
+
+#### Debug Mode
+
+Run with detailed logging:
+
+```bash
+python assess.py https://github.com/user/repo \
+  --log-level DEBUG \
+  --log-file assessment.log
+```
+
+#### Custom Configuration
+
+Use custom API endpoint and timeouts:
+
+```bash
+python assess.py https://github.com/user/repo \
+  --endpoint https://api.sqaaas.eosc-synergy.eu/v1 \
+  --timeout 120 \
+  --poll-interval 10 \
+  --max-retries 5
+```
+
+#### With Custom Steps
+
+Run assessment with custom unit testing steps:
+
+```bash
+python assess.py https://github.com/user/repo \
+  --steps-file custom_steps.json
+```
+
+Example `custom_steps.json`:
+
+```json
+{
+  "name": "tox_unit_step",
+  "tool": "tox",
+  "args": {
+    "tox_env": "run_unit"
+  }
+}
+```
+
+## Configuration
+
+### Environment Variables
+
+You can configure the tool using environment variables (CLI arguments take precedence):
+
+| Variable               | Description                        | Default                                         |
+| ---------------------- | ---------------------------------- | ----------------------------------------------- |
+| `SQAAAS_ENDPOINT`      | API endpoint URL                   | `https://api-staging.sqaaas.eosc-synergy.eu/v1` |
+| `SQAAAS_TIMEOUT`       | Request timeout in seconds         | 60                                              |
+| `SQAAAS_POLL_INTERVAL` | Status polling interval in seconds | 5                                               |
+| `SQAAAS_MAX_RETRIES`   | Maximum retry attempts             | 3                                               |
+| `SQAAAS_RETRY_BACKOFF` | Retry backoff multiplier           | 2.0                                             |
+
+Example:
+
+```bash
+export SQAAAS_ENDPOINT=https://api.sqaaas.eosc-synergy.eu/v1
+export SQAAAS_TIMEOUT=120
+python assess.py https://github.com/user/repo
+```
+
+## Output Formats
+
+### JSON Report
+
+The complete assessment report in JSON format contains:
+
+- Quality criteria results (pass/fail for each criterion)
+- Evidence and assertions for each check
+- Badge information (gold/silver/bronze)
+- Repository metadata
+- Links to quality standards
+
+Example structure:
+
+```json
+{
+  "report": {
+    "QC.Acc": {
+      "subcriteria": { ... }
+    },
+    "QC.Doc": {
+      "subcriteria": { ... }
+    }
+  },
+  "badge": {
+    "software": {
+      "criteria": {
+        "gold": { "missing": [...] },
+        "silver": { "missing": [...] },
+        "bronze": { "missing": [...] }
+      }
+    }
+  },
+  "repository": [ ... ],
+  "meta": { ... }
+}
+```
+
+### Markdown Summary
+
+The markdown summary includes:
+
+- Quality criteria results table
+- Achieved badge level
+- Missing criteria for next badge level
+- Links to detailed criteria documentation
+- Link to full report in SQAaaS platform
+
+### Quality Badges
+
+Two types of badges are generated:
+
+1. **SQAaaS Badge** - Official badge for achieved levels (gold/silver/bronze)
+2. **shields.io Badge** - Dynamic status badge that updates with each assessment
+
+Example badge markdown:
 
 ```markdown
-[![SQAaaS badge shields.io](https://github.com/EOSC-synergy/<repository-name>.assess.sqaaas/raw/<branch-name>/.badge/status_shields.svg)](https://sqaaas.eosc-synergy.eu/#/full-assessment/report/https://raw.githubusercontent.com/eosc-synergy/<your-repository-name>.assess.sqaaas/<branch-name>/.report/assessment_output.json)
+[![SQAaaS badge shields.io](https://github.com/EOSC-synergy/<repo>.assess.sqaaas/raw/<branch>/.badge/status_shields.svg)](https://sqaaas.eosc-synergy.eu/#/full-assessment/report/https://raw.githubusercontent.com/eosc-synergy/<repo>.assess.sqaaas/<branch>/.report/assessment_output.json)
 ```
 
-so e.g.:
+## Exit Codes
 
-```markdown
-[![SQAaaS badge shields.io](https://github.com/EOSC-synergy/sqaaas-assessment-action.assess.sqaaas/raw/main/.badge/status_shields.svg)](https://sqaaas.eosc-synergy.eu/#/full-assessment/report/https://raw.githubusercontent.com/eosc-synergy/sqaaas-assessment-action.assess.sqaaas/main/.report/assessment_output.json)
+| Code | Description                        |
+| ---- | ---------------------------------- |
+| 0    | Success                            |
+| 1    | Repository not defined or invalid  |
+| 2    | Step workflow definition not found |
+| 101  | HTTP/API error                     |
+| 102  | General error                      |
+
+## Quality Criteria
+
+The SQAaaS platform evaluates repositories against these quality criteria:
+
+- **QC.Acc** - Code Accessibility
+- **QC.Wor** - Code Workflow
+- **QC.Man** - Code Management
+- **QC.Rev** - Code Review
+- **QC.Ver** - Semantic Versioning
+- **QC.Lic** - Licensing
+- **QC.Met** - Code Metadata
+- **QC.Doc** - Documentation
+- **QC.Sty** - Code Style
+- **QC.Uni** - Unit Testing
+- **QC.Har** - Test Harness
+- **QC.Tdd** - Test-Driven Development
+- **QC.Sec** - Security
+- **QC.Del** - Automated Delivery
+- **QC.Dep** - Automated Deployment
+
+See the [EOSC-Synergy Software Quality Baseline](https://indigo-dc.github.io/sqa-baseline/) for detailed criteria definitions.
+
+## GitHub Actions Usage
+
+This tool can also be used as a GitHub Action. For minimal integration:
+
+```yaml
+- uses: eosc-synergy/sqaaas-assessment-action@v2
 ```
 
-**Note**: as the SQAaaS status badges are stored in GitHub repositories, they are not immediately refreshed upon changes in the progress of the quality assessment (GitHub currently sets a `Cache-Control` of 300 seconds).
+For advanced GitHub Actions usage, see the [GitHub Actions documentation](https://github.com/EOSC-synergy/sqaaas-assessment-action/blob/main/docs/github-actions.md) (if available) or the original README.
+
+## Development
+
+### Code Style
+
+This project uses [black](https://github.com/psf/black) for code formatting:
+
+```bash
+black assess.py
+```
+
+### Contributing
+
+Contributions are welcome! Please ensure:
+
+- Code follows the black style guide
+- New features include documentation
+- Tests pass (if applicable)
+- Commit messages are clear and descriptive
+
+## License
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+See [LICENSE.txt](LICENSE.txt) for details.
+
+## Authors
+
+- Pablo Orviz - Original author (GitHub Actions version)
+- Carlos Brandt - CLI enhancements and standalone functionality
+
+## Acknowledgments
+
+This tool is part of the [EOSC Beyond](https://www.eosc-beyond.eu/) project and
+uses the [SQAaaS platform](https://sqaaas.eosc-synergy.eu) for quality assessments.

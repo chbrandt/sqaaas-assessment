@@ -121,12 +121,17 @@ class ReportResult:
     criterion: str
 
 
+# Configuration Constants
+TIMEOUT_SECONDS_DEFAULT = 600  # seconds
+PIPELINE_STATUS_CHECK_INTERVAL = 5  # seconds
+
+
 @dataclass
 class SQAaaSConfig:
     """Configuration for SQAaaS assessment."""
     endpoint: str = "https://api-staging.sqaaas.eosc-synergy.eu/v1"
-    timeout: int = 60
-    poll_interval: int = 5
+    timeout: int = TIMEOUT_SECONDS_DEFAULT
+    poll_interval: int = PIPELINE_STATUS_CHECK_INTERVAL
     max_retries: int = 3
     retry_backoff: float = 2.0
 
@@ -142,7 +147,8 @@ class SQAaaSConfig:
             timeout=int(os.environ.get("SQAAAS_TIMEOUT", cls.timeout)),
             poll_interval=int(os.environ.get(
                 "SQAAAS_POLL_INTERVAL", cls.poll_interval)),
-            max_retries=int(os.environ.get("SQAAAS_MAX_RETRIES", cls.max_retries)),
+            max_retries=int(os.environ.get(
+                "SQAAAS_MAX_RETRIES", cls.max_retries)),
             retry_backoff=float(os.environ.get(
                 "SQAAAS_RETRY_BACKOFF", cls.retry_backoff)),
         )
@@ -156,7 +162,6 @@ GENERAL_ERROR_CODE = ExitCode.GENERAL_ERROR.value
 
 COMPLETED_STATUS = ["SUCCESS", "FAILURE", "UNSTABLE", "ABORTED"]
 SUCCESFUL_STATUS = ["SUCCESS", "UNSTABLE"]
-PIPELINE_STATUS_CHECK_INTERVAL = 5  # seconds
 
 # API endpoint
 LINKS_TO_STANDARD = {
@@ -258,7 +263,8 @@ class SQAaaSAPIClient:
                         url, json=payload, timeout=self.config.timeout
                     )
                 else:
-                    response = self.session.get(url, timeout=self.config.timeout)
+                    response = self.session.get(
+                        url, timeout=self.config.timeout)
 
                 response.raise_for_status()
                 logger.debug(f"Request to {path} succeeded")
@@ -301,11 +307,13 @@ class SQAaaSAPIClient:
             PipelineError: If response doesn't contain expected data
         """
         logger.info("Creating assessment pipeline")
-        response = self._request_with_retry("POST", "pipeline/assessment", payload)
+        response = self._request_with_retry(
+            "POST", "pipeline/assessment", payload)
         response_data = response.json()
 
         if "id" not in response_data:
-            raise PipelineError("Pipeline creation response missing 'id' field")
+            raise PipelineError(
+                "Pipeline creation response missing 'id' field")
 
         pipeline_id = response_data["id"]
         logger.info(f"Created pipeline with ID: {pipeline_id}")
@@ -336,7 +344,8 @@ class SQAaaSAPIClient:
             APIError: If status retrieval fails
             PipelineError: If response doesn't contain expected data
         """
-        response = self._request_with_retry("GET", f"pipeline/{pipeline_id}/status")
+        response = self._request_with_retry(
+            "GET", f"pipeline/{pipeline_id}/status")
         response_data = response.json()
 
         if "build_status" not in response_data:
@@ -403,11 +412,13 @@ class ReportProcessor:
             BadgeInfo dataclass with badge details
         """
         badge_software = report_json["badge"]["software"]
-        repo_data = report_json["repository"][0]  # NOTE: temporarily use first element
+        # NOTE: temporarily use first element
+        repo_data = report_json["repository"][0]
         repo = os.path.basename(repo_data["name"])
         branch = repo_data["tag"]
 
-        badge_shields_md = SHIELDS_BADGE_MARKDOWN.format(repo=repo, branch=branch)
+        badge_shields_md = SHIELDS_BADGE_MARKDOWN.format(
+            repo=repo, branch=branch)
         badge_sqaaas_md: Optional[str] = None
         to_fulfill: List[str] = []
         next_level_badge = ""
@@ -415,7 +426,8 @@ class ReportProcessor:
         for badgeclass in ["gold", "silver", "bronze"]:
             missing = badge_software["criteria"][badgeclass]["missing"]
             if not missing:
-                logger.debug(f"Not missing criteria: achieved {badgeclass} badge")
+                logger.debug(
+                    f"Not missing criteria: achieved {badgeclass} badge")
                 badge_share_data = SYNERGY_BADGE_MARKDOWN[badgeclass]
                 badge_sqaaas_md = badge_share_data["sqaaas"].format(
                     repo=repo, branch=branch
@@ -568,7 +580,8 @@ def run_assessment(
         build_status = status_data["build_status"]
 
         if PipelineStatus.is_completed(build_status):
-            logger.info(f"Pipeline {pipeline_id} finished with status {build_status}")
+            logger.info(
+                f"Pipeline {pipeline_id} finished with status {build_status}")
             if not PipelineStatus.is_successful(build_status):
                 raise PipelineError(
                     f"Pipeline {pipeline_id} completed with failure status: {build_status}"
@@ -787,7 +800,7 @@ Environment Variables:
     parser.add_argument(
         '--poll-interval', '-p',
         type=int,
-        default=5,
+        default=PIPELINE_STATUS_CHECK_INTERVAL,
         help='Status poll interval in seconds (default: %(default)s)'
     )
     parser.add_argument(
@@ -814,7 +827,7 @@ Environment Variables:
     parser.add_argument(
         '--timeout', '-t',
         type=int,
-        default=60,
+        default=TIMEOUT_SECONDS_DEFAULT,
         help='Request timeout in seconds (default: %(default)s)'
     )
     parser.add_argument(
