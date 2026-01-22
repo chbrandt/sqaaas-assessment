@@ -1,17 +1,10 @@
-<!--
-SPDX-FileCopyrightText: Copyright contributors to the Software Quality Assurance as a Service (SQAaaS) project.
-SPDX-FileContributor: Pablo Orviz <orviz@ifca.unican.es>
-SPDX-FileContributor: Carlos Brandt <chbrandt@gmail.com>
-
-SPDX-License-Identifier: GPL-3.0-only
--->
-
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # SQAaaS Assessment CLI
 
-A command-line tool for running software quality assessments using the [SQAaaS platform](https://sqaaas.eosc-synergy.eu). This tool evaluates source code repositories against quality criteria defined in the [EOSC-Synergy Software Quality Baseline](https://indigo-dc.github.io/sqa-baseline/).
+A command-line tool for running software quality assessments using the [SQAaaS platform](https://sqaaas.eosc-synergy.eu), which evaluates source code repositories against quality criteria defined in the [EOSC-Synergy Software Quality Baseline](https://indigo-dc.github.io/sqa-baseline/).
+This tool is composing the set of service Adapters created in the [EOSC Beyond](https://www.eosc-beyond.eu) project.
 
 ## Features
 
