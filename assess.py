@@ -195,13 +195,13 @@ SYNERGY_BADGE_MARKDOWN = {
 }
 SHIELDS_BADGE_MARKDOWN = "[![SQAaaS badge shields.io](https://github.com/EOSC-synergy/{repo}.assess.sqaaas/raw/{branch}/.badge/status_shields.svg)](https://sqaaas.eosc-synergy.eu/#/full-assessment/report/https://raw.githubusercontent.com/eosc-synergy/{repo}.assess.sqaaas/{branch}/.report/assessment_output.json)"
 
-SUMMARY_TEMPLATE = """## SQAaaS results :bellhop_bell:
+SUMMARY_TEMPLATE = """## SQAaaS results 🛎️
 
 ### Quality criteria summary
 | Result | Assertion | Subcriterion ID | Criterion ID |
 | ------ | --------- | --------------- | ------------ |
 {%- for result in report_results %}
-| {{ ":heavy_check_mark:" if result.status else ":heavy_multiplication_x:" }} | {{ result.assertion }} | {{ result.subcriterion }} | {{ result.criterion }} |
+| {{ "✅" if result.status else "❌" }} | {{ result.assertion }} | {{ result.subcriterion }} | {{ result.criterion }} |
 {%- endfor %}
 
 ### Quality badge
@@ -213,7 +213,7 @@ shields.io-based badge: {{ badge_results.badge_shields_md }}
  - Missing quality criteria for next level badge ({{ badge_results.next_level_badge }}): {% for criterion_to_fulfill in badge_results.to_fulfill %}[`{{ criterion_to_fulfill }}`]({{ links_to_standard[criterion_to_fulfill] }}) {% endfor %}
 {%- endif %}
 
-### :clipboard: __View full report in the [SQAaaS platform]({{ report_url }})__
+### 📋 __View full report in the [SQAaaS platform]({{ report_url }})__
 """
 
 
