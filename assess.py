@@ -110,7 +110,7 @@ class ReportResult:
 class SQAaaSConfig:
     """Configuration for SQAaaS assessment."""
     endpoint: str = "https://api-staging.sqaaas.eosc-synergy.eu/v1"
-    timeout: int = 30
+    timeout: int = 60
     poll_interval: int = 5
     max_retries: int = 3
     retry_backoff: float = 2.0
@@ -230,6 +230,9 @@ class SQAaaSAPIClient:
         Raises:
             APIError: If request fails after all retries
         """
+        if payload is None:
+            payload = {}
+
         method = method.upper()
         url = f"{self.config.endpoint}/{path}"
 
@@ -344,120 +347,6 @@ class SQAaaSAPIClient:
         return response.json()
 
 
-def validate_repo_url(repo: str) -> bool:
-    """Validate repository URL format.
-
-    Args:
-        repo: Repository URL to validate
-
-    Returns:
-        True if URL is valid, False otherwise
-    """
-    if not repo or not repo.strip():
-        return False
-    # Basic validation: should start with http:// or https://
-    return repo.startswith(("http://", "https://"))
-
-
-def create_payload(
-    repo: str,
-    branch: Optional[str] = None,
-    step_tools: Optional[Dict[str, List[Dict[str, Any]]]] = None
-) -> str:
-    """Create JSON payload for triggering SQAaaS assessment.
-
-    Args:
-        repo: Repository URL to assess
-        branch: Branch name to assess (optional)
-        step_tools: Dictionary mapping criterion IDs to their tool configurations
-
-    Returns:
-        JSON string representation of the payload
-
-    Raises:
-        ValueError: If repository URL is invalid
-    """
-    if not validate_repo_url(repo):
-        raise ValueError(f"Invalid repository URL: {repo}")
-
-    if step_tools is None:
-        step_tools = {}
-
-    payload: Dict[str, Any] = {
-        "repo_code": {
-            "repo": repo,
-            "branch": branch or '',
-        }
-    }
-    if step_tools:
-        for criterion, tools in step_tools.items():
-            payload["criteria_workflow"] = [{"id": criterion, "tools": tools}]
-            break  # FIXME: only interested in the first one, i.e. QC.Uni
-    logger.debug(f"Payload for triggering SQAaaS assessment: {payload}")
-
-    return json.dumps(payload)
-
-
-def run_assessment(
-    repo: str,
-    branch: Optional[str] = None,
-    step_tools: Optional[Dict[str, List[Dict[str, Any]]]] = None,
-    config: Optional[SQAaaSConfig] = None
-) -> Dict[str, Any]:
-    """Run SQAaaS assessment pipeline for a repository.
-
-    This function orchestrates the full lifecycle of a pipeline assessment:
-    creating the pipeline, running it, polling for status, and retrieving results.
-
-    Args:
-        repo: Repository URL to assess
-        branch: Branch name to assess (optional)
-        step_tools: Dictionary mapping criterion IDs to their tool configurations
-        config: Optional SQAaaS configuration (uses environment defaults if not provided)
-
-    Returns:
-        Dictionary containing the complete assessment report JSON
-
-    Raises:
-        APIError: If any API operation fails
-        PipelineError: If pipeline operations fail
-    """
-    if step_tools is None:
-        step_tools = {}
-
-    if config is None:
-        config = SQAaaSConfig.from_environment()
-
-    # Create API client
-    api_client = SQAaaSAPIClient(config)
-
-    # Create payload
-    payload = json.loads(create_payload(repo, branch, step_tools))
-    logger.debug(f"Using payload: {payload}")
-
-    # Create and run pipeline
-    pipeline_id = api_client.create_pipeline(payload)
-    api_client.run_pipeline(pipeline_id)
-
-    # Poll for completion
-    while True:
-        status_data = api_client.get_pipeline_status(pipeline_id)
-        build_status = status_data["build_status"]
-
-        if PipelineStatus.is_completed(build_status):
-            logger.info(f"Pipeline {pipeline_id} finished with status {build_status}")
-            break
-
-        logger.info(
-            f"Current status is {build_status}. Waiting {config.poll_interval} seconds.."
-        )
-        time.sleep(config.poll_interval)
-
-    # Get and return results
-    sqaaas_report_json = api_client.get_pipeline_output(pipeline_id)
-    return sqaaas_report_json
-
-
 # Report Processor
 class ReportProcessor:
     """Process SQAaaS assessment reports and generate summaries."""
@@ -561,6 +450,124 @@ class ReportProcessor:
             report_url=full_report_url,
             links_to_standard=LINKS_TO_STANDARD,
         )
+
+
+def validate_repo_url(repo: str) -> bool:
+    """Validate repository URL format.
+
+    Args:
+        repo: Repository URL to validate
+
+    Returns:
+        True if URL is valid, False otherwise
+    """
+    if not repo or not repo.strip():
+        return False
+    # Basic validation: should start with http:// or https://
+    return repo.startswith(("http://", "https://"))
+
+
+def create_payload(
+    repo: str,
+    branch: Optional[str] = None,
+    step_tools: Optional[Dict[str, List[Dict[str, Any]]]] = None
+) -> str:
+    """Create JSON payload for triggering SQAaaS assessment.
+
+    Args:
+        repo: Repository URL to assess
+        branch: Branch name to assess (optional)
+        step_tools: Dictionary mapping criterion IDs to their tool configurations
+
+    Returns:
+        JSON string representation of the payload
+
+    Raises:
+        ValueError: If repository URL is invalid
+    """
+    if not validate_repo_url(repo):
+        raise ValueError(f"Invalid repository URL: {repo}")
+
+    if step_tools is None:
+        step_tools = {}
+
+    payload: Dict[str, Any] = {
+        "repo_code": {
+            "repo": repo,
+            "branch": branch or '',
+        }
+    }
+    if step_tools:
+        for criterion, tools in step_tools.items():
+            payload["criteria_workflow"] = [{"id": criterion, "tools": tools}]
+            break  # FIXME: only interested in the first one, i.e. QC.Uni
+    logger.debug(f"Payload for triggering SQAaaS assessment: {payload}")
+
+    return json.dumps(payload)
+
+
+def run_assessment(
+    repo: str,
+    branch: Optional[str] = None,
+    step_tools: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    config: Optional[SQAaaSConfig] = None
+) -> Dict[str, Any]:
+    """Run SQAaaS assessment pipeline for a repository.
+
+    This function orchestrates the full lifecycle of a pipeline assessment:
+    creating the pipeline, running it, polling for status, and retrieving results.
+
+    Args:
+        repo: Repository URL to assess
+        branch: Branch name to assess (optional)
+        step_tools: Dictionary mapping criterion IDs to their tool configurations
+        config: Optional SQAaaS configuration (uses environment defaults if not provided)
+
+    Returns:
+        Dictionary containing the complete assessment report JSON
+
+    Raises:
+        APIError: If any API operation fails
+        PipelineError: If pipeline operations fail
+    """
+    if step_tools is None:
+        step_tools = {}
+
+    if config is None:
+        config = SQAaaSConfig.from_environment()
+
+    # Create API client
+    api_client = SQAaaSAPIClient(config)
+
+    # Create payload
+    payload = json.loads(create_payload(repo, branch, step_tools))
+    logger.debug(f"Using payload: {payload}")
+
+    # Create and run pipeline
+    pipeline_id = api_client.create_pipeline(payload)
+    api_client.run_pipeline(pipeline_id)
+
+    # Poll for completion
+    while True:
+        status_data = api_client.get_pipeline_status(pipeline_id)
+        build_status = status_data["build_status"]
+
+        if PipelineStatus.is_completed(build_status):
+            logger.info(f"Pipeline {pipeline_id} finished with status {build_status}")
+            if not PipelineStatus.is_successful(build_status):
+                raise PipelineError(
+                    f"Pipeline {pipeline_id} completed with failure status: {build_status}"
+                )
+            break
+
+        logger.info(
+            f"Current status is {build_status}. Waiting {config.poll_interval} seconds.."
+        )
+        time.sleep(config.poll_interval)
+
+    # Get and return results
+    sqaaas_report_json = api_client.get_pipeline_output(pipeline_id)
+    return sqaaas_report_json
 
 
 def get_summary(sqaaas_report_json: Dict[str, Any]) -> str:
@@ -764,7 +771,7 @@ Environment Variables:
     parser.add_argument(
         '--timeout', '-t',
         type=int,
-        default=30,
+        default=60,
         help='Request timeout in seconds (default: %(default)s)'
     )
     parser.add_argument(
