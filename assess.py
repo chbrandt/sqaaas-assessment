@@ -1,7 +1,22 @@
-# SPDX-FileCopyrightText: Copyright contributors to the Software Quality Assurance as a Service (SQAaaS) project.
-# SPDX-FileContributor: Pablo Orviz <orviz@ifca.unican.es>
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# SQAaaS (Software Quality Assurance as a Service) Client Library
+# This file is based on 'assess.py' from SQAaaS assessment-action
+# repository (https://github.com/EOSC-synergy/sqaaas-assessment-action),
+# authored by Pablo Orviz, originally designed for GitHub actions.
+# This version has been adapted and extended for standalone use,
+# either from the command-line or as a Python module.
 #
-# SPDX-License-Identifier: GPL-3.0-only
+# Copyright(C) 2026 Carlos Brandt and contributors.
+#
+# This program is free software: you can redistribute it and / or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with this program.  If not, see < https: // www.gnu.org/licenses/>.
+
 
 import argparse
 import json
@@ -17,7 +32,7 @@ import jinja2
 import requests
 
 # Default logger (will be reconfigured based on CLI args)
-logger = logging.getLogger("sqaaas-assessment-action")
+logger = logging.getLogger("sqaaas-assessment")
 
 
 # Custom Exceptions
@@ -747,14 +762,9 @@ Environment Variables:
         help='SQAaaS API endpoint (default: %(default)s)'
     )
     parser.add_argument(
-        '--output', '-o',
+        '--log-file',
         type=str,
-        help='Output file for report JSON'
-    )
-    parser.add_argument(
-        '--summary-file', '-s',
-        type=str,
-        help='Write markdown summary to file'
+        help='Write logs to file'
     )
     parser.add_argument(
         '--log-level', '-l',
@@ -764,15 +774,15 @@ Environment Variables:
         help='Logging level (default: %(default)s)'
     )
     parser.add_argument(
-        '--log-file',
-        type=str,
-        help='Write logs to file'
+        '--max-retries', '-m',
+        type=int,
+        default=3,
+        help='Maximum retry attempts (default: %(default)s)'
     )
     parser.add_argument(
-        '--timeout', '-t',
-        type=int,
-        default=60,
-        help='Request timeout in seconds (default: %(default)s)'
+        '--output', '-o',
+        type=str,
+        help='Output file for report JSON'
     )
     parser.add_argument(
         '--poll-interval', '-p',
@@ -781,10 +791,9 @@ Environment Variables:
         help='Status poll interval in seconds (default: %(default)s)'
     )
     parser.add_argument(
-        '--max-retries', '-m',
-        type=int,
-        default=3,
-        help='Maximum retry attempts (default: %(default)s)'
+        '--quiet', '-q',
+        action='store_true',
+        help='Suppress non-error output'
     )
     parser.add_argument(
         '--retry-backoff',
@@ -798,9 +807,15 @@ Environment Variables:
         help='JSON file with custom QC.Uni steps'
     )
     parser.add_argument(
-        '--quiet', '-q',
-        action='store_true',
-        help='Suppress non-error output'
+        '--summary-file', '-s',
+        type=str,
+        help='Write markdown summary to file'
+    )
+    parser.add_argument(
+        '--timeout', '-t',
+        type=int,
+        default=60,
+        help='Request timeout in seconds (default: %(default)s)'
     )
     parser.add_argument(
         '--version', '-v',
