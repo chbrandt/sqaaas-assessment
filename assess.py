@@ -143,8 +143,10 @@ class SQAaaSConfig:
             SQAaaSConfig instance with values from environment or defaults
         """
         return cls(
-            endpoint=os.environ.get("SQAAAS_ENDPOINT", cls.endpoint),
-            timeout=int(os.environ.get("SQAAAS_TIMEOUT", cls.timeout)),
+            endpoint=os.environ.get(
+                "SQAAAS_ENDPOINT", cls.endpoint),
+            timeout=int(os.environ.get(
+                "SQAAAS_TIMEOUT", cls.timeout)),
             poll_interval=int(os.environ.get(
                 "SQAAAS_POLL_INTERVAL", cls.poll_interval)),
             max_retries=int(os.environ.get(
@@ -819,12 +821,12 @@ Environment Variables:
         type=str,
         help='Branch name to assess (default: main or from git)'
     )
-    parser.add_argument(
-        '--endpoint', '-e',
-        type=str,
-        default='https://api-staging.sqaaas.eosc-synergy.eu/v1',
-        help='SQAaaS API endpoint (default: %(default)s)'
-    )
+    # parser.add_argument(
+    #     '--endpoint', '-e',
+    #     type=str,
+    #     default='https://api-staging.sqaaas.eosc-synergy.eu/v1',
+    #     help='SQAaaS API endpoint (default: %(default)s)'
+    # )
     parser.add_argument(
         '--log-file',
         type=str,
@@ -837,34 +839,34 @@ Environment Variables:
         default='INFO',
         help='Logging level (default: %(default)s)'
     )
-    parser.add_argument(
-        '--max-retries', '-m',
-        type=int,
-        default=3,
-        help='Maximum retry attempts (default: %(default)s)'
-    )
+    # parser.add_argument(
+    #     '--max-retries', '-m',
+    #     type=int,
+    #     default=3,
+    #     help='Maximum retry attempts (default: %(default)s)'
+    # )
     parser.add_argument(
         '--output', '-o',
         type=str,
         help='Output file for report JSON'
     )
-    parser.add_argument(
-        '--poll-interval', '-p',
-        type=int,
-        default=PIPELINE_STATUS_CHECK_INTERVAL,
-        help='Status poll interval in seconds (default: %(default)s)'
-    )
+    # parser.add_argument(
+    #     '--poll-interval', '-p',
+    #     type=int,
+    #     default=PIPELINE_STATUS_CHECK_INTERVAL,
+    #     help='Status poll interval in seconds (default: %(default)s)'
+    # )
     parser.add_argument(
         '--quiet', '-q',
         action='store_true',
         help='Suppress non-error output'
     )
-    parser.add_argument(
-        '--retry-backoff',
-        type=float,
-        default=2.0,
-        help='Retry backoff multiplier (default: %(default)s)'
-    )
+    # parser.add_argument(
+    #     '--retry-backoff',
+    #     type=float,
+    #     default=2.0,
+    #     help='Retry backoff multiplier (default: %(default)s)'
+    # )
     parser.add_argument(
         '--steps-file',
         type=str,
@@ -875,12 +877,12 @@ Environment Variables:
         type=str,
         help='Write markdown summary to file'
     )
-    parser.add_argument(
-        '--timeout', '-t',
-        type=int,
-        default=TIMEOUT_SECONDS_DEFAULT,
-        help='Request timeout in seconds (default: %(default)s)'
-    )
+    # parser.add_argument(
+    #     '--timeout', '-t',
+    #     type=int,
+    #     default=TIMEOUT_SECONDS_DEFAULT,
+    #     help='Request timeout in seconds (default: %(default)s)'
+    # )
     parser.add_argument(
         '--version', '-v',
         action='version',
@@ -924,13 +926,13 @@ def main_cli() -> None:
 
     try:
         # Create configuration from CLI arguments
-        config = SQAaaSConfig(
-            endpoint=args.endpoint,
-            timeout=args.timeout,
-            poll_interval=args.poll_interval,
-            max_retries=args.max_retries,
-            retry_backoff=args.retry_backoff
-        )
+        # config = SQAaaSConfig(
+        #     endpoint=args.endpoint,
+        #     timeout=args.timeout,
+        #     poll_interval=args.poll_interval,
+        #     max_retries=args.max_retries,
+        #     retry_backoff=args.retry_backoff
+        # )
 
         logger.info(f"Starting SQAaaS assessment for repository: {args.repo}")
 
