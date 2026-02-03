@@ -10,12 +10,18 @@
 #
 # Copyright(C) 2026 Carlos Brandt and contributors.
 #
-# This program is free software: you can redistribute it and / or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+# This program is free software: you can redistribute it and / or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY
-# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along with this program.  If not, see < https: // www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see < https: // www.gnu.org/licenses/>.
 
 
 import argparse
@@ -38,27 +44,32 @@ logger = logging.getLogger("sqaaas-assessment")
 # Custom Exceptions
 class SQAaaSError(Exception):
     """Base exception for SQAaaS operations."""
+
     pass
 
 
 class RepositoryError(SQAaaSError):
     """Repository validation or access errors."""
+
     pass
 
 
 class PipelineError(SQAaaSError):
     """Pipeline execution errors."""
+
     pass
 
 
 class APIError(SQAaaSError):
     """API communication errors."""
+
     pass
 
 
 # Enums
 class ExitCode(Enum):
     """Application exit codes."""
+
     REPO_NOT_DEFINED = 1
     STEP_WORKFLOW_NOT_FOUND = 2
     HTTP_ERROR = 101
@@ -67,6 +78,7 @@ class ExitCode(Enum):
 
 class PipelineStatus(Enum):
     """Pipeline execution status values."""
+
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
     UNSTABLE = "UNSTABLE"
@@ -86,7 +98,7 @@ class PipelineStatus(Enum):
             cls.SUCCESS.value,
             cls.FAILURE.value,
             cls.UNSTABLE.value,
-            cls.ABORTED.value
+            cls.ABORTED.value,
         ]
 
     @classmethod
@@ -106,6 +118,7 @@ class PipelineStatus(Enum):
 @dataclass
 class BadgeInfo:
     """Badge information for assessment results."""
+
     badge_sqaaas_md: Optional[str]
     badge_shields_md: str
     to_fulfill: List[str]
@@ -115,6 +128,7 @@ class BadgeInfo:
 @dataclass
 class ReportResult:
     """Individual quality report result."""
+
     status: bool
     assertion: str
     subcriterion: str
@@ -129,6 +143,7 @@ PIPELINE_STATUS_CHECK_INTERVAL = 5  # seconds
 @dataclass
 class SQAaaSConfig:
     """Configuration for SQAaaS assessment."""
+
     endpoint: str = "https://api-staging.sqaaas.eosc-synergy.eu/v1"
     timeout: int = TIMEOUT_SECONDS_DEFAULT
     poll_interval: int = PIPELINE_STATUS_CHECK_INTERVAL
@@ -136,23 +151,24 @@ class SQAaaSConfig:
     retry_backoff: float = 2.0
 
     @classmethod
-    def from_environment(cls) -> 'SQAaaSConfig':
+    def from_environment(cls) -> "SQAaaSConfig":
         """Load configuration from environment variables.
 
         Returns:
             SQAaaSConfig instance with values from environment or defaults
         """
         return cls(
-            endpoint=os.environ.get(
-                "SQAAAS_ENDPOINT", cls.endpoint),
-            timeout=int(os.environ.get(
-                "SQAAAS_TIMEOUT", cls.timeout)),
-            poll_interval=int(os.environ.get(
-                "SQAAAS_POLL_INTERVAL", cls.poll_interval)),
-            max_retries=int(os.environ.get(
-                "SQAAAS_MAX_RETRIES", cls.max_retries)),
-            retry_backoff=float(os.environ.get(
-                "SQAAAS_RETRY_BACKOFF", cls.retry_backoff)),
+            endpoint=os.environ.get("SQAAAS_ENDPOINT", cls.endpoint),
+            timeout=int(os.environ.get("SQAAAS_TIMEOUT", cls.timeout)),
+            poll_interval=int(
+                os.environ.get("SQAAAS_POLL_INTERVAL", cls.poll_interval)
+            ),
+            max_retries=int(
+                os.environ.get("SQAAAS_MAX_RETRIES", cls.max_retries)
+            ),
+            retry_backoff=float(
+                os.environ.get("SQAAAS_RETRY_BACKOFF", cls.retry_backoff)
+            ),
         )
 
 
@@ -234,10 +250,7 @@ class SQAaaSAPIClient:
         self.session.headers.update({"Content-Type": "application/json"})
 
     def _request_with_retry(
-        self,
-        method: str,
-        path: str,
-        payload: Optional[Dict[str, Any]] = None
+        self, method: str, path: str, payload: Optional[Dict[str, Any]] = None
     ) -> requests.Response:
         """Make HTTP request with retry logic.
 
@@ -266,7 +279,8 @@ class SQAaaSAPIClient:
                     )
                 else:
                     response = self.session.get(
-                        url, timeout=self.config.timeout)
+                        url, timeout=self.config.timeout
+                    )
 
                 response.raise_for_status()
                 logger.debug(f"Request to {path} succeeded")
@@ -275,25 +289,30 @@ class SQAaaSAPIClient:
             except requests.HTTPError as http_err:
                 if attempt == self.config.max_retries - 1:
                     logger.error(
-                        f"HTTP error on {path} after {self.config.max_retries} attempts: {http_err}")
+                        f"HTTP error on {path} after {self.config.max_retries} attempts: {http_err}"
+                    )
                     raise APIError(f"HTTP error: {http_err}") from http_err
-                wait_time = self.config.retry_backoff ** attempt
+                wait_time = self.config.retry_backoff**attempt
                 logger.warning(
-                    f"HTTP error on {path} (attempt {attempt + 1}/{self.config.max_retries}): {http_err}. Retrying in {wait_time}s...")
+                    f"HTTP error on {path} (attempt {attempt + 1}/{self.config.max_retries}): {http_err}. Retrying in {wait_time}s..."
+                )
                 time.sleep(wait_time)
 
             except requests.RequestException as req_err:
                 if attempt == self.config.max_retries - 1:
                     logger.error(
-                        f"Request error on {path} after {self.config.max_retries} attempts: {req_err}")
+                        f"Request error on {path} after {self.config.max_retries} attempts: {req_err}"
+                    )
                     raise APIError(f"Request error: {req_err}") from req_err
-                wait_time = self.config.retry_backoff ** attempt
+                wait_time = self.config.retry_backoff**attempt
                 logger.warning(
-                    f"Request error on {path} (attempt {attempt + 1}/{self.config.max_retries}): {req_err}. Retrying in {wait_time}s...")
+                    f"Request error on {path} (attempt {attempt + 1}/{self.config.max_retries}): {req_err}. Retrying in {wait_time}s..."
+                )
                 time.sleep(wait_time)
 
         raise APIError(
-            f"Request to {path} failed after {self.config.max_retries} attempts")
+            f"Request to {path} failed after {self.config.max_retries} attempts"
+        )
 
     def create_pipeline(self, payload: Dict[str, Any]) -> str:
         """Create assessment pipeline.
@@ -310,12 +329,14 @@ class SQAaaSAPIClient:
         """
         logger.info("Creating assessment pipeline")
         response = self._request_with_retry(
-            "POST", "pipeline/assessment", payload)
+            "POST", "pipeline/assessment", payload
+        )
         response_data = response.json()
 
         if "id" not in response_data:
             raise PipelineError(
-                "Pipeline creation response missing 'id' field")
+                "Pipeline creation response missing 'id' field"
+            )
 
         pipeline_id = response_data["id"]
         logger.info(f"Created pipeline with ID: {pipeline_id}")
@@ -347,7 +368,8 @@ class SQAaaSAPIClient:
             PipelineError: If response doesn't contain expected data
         """
         response = self._request_with_retry(
-            "GET", f"pipeline/{pipeline_id}/status")
+            "GET", f"pipeline/{pipeline_id}/status"
+        )
         response_data = response.json()
 
         if "build_status" not in response_data:
@@ -369,7 +391,8 @@ class SQAaaSAPIClient:
         """
         logger.info(f"Retrieving output for pipeline {pipeline_id}")
         response = self._request_with_retry(
-            "GET", f"pipeline/assessment/{pipeline_id}/output")
+            "GET", f"pipeline/assessment/{pipeline_id}/output"
+        )
         return response.json()
 
 
@@ -377,7 +400,9 @@ class SQAaaSAPIClient:
 class ReportProcessor:
     """Process SQAaaS assessment reports and generate summaries."""
 
-    def extract_results(self, report_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_results(
+        self, report_json: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """Extract quality results from report.
 
         Args:
@@ -388,7 +413,9 @@ class ReportProcessor:
         """
         report_results: List[Dict[str, Any]] = []
         for criterion, criterion_data in report_json["report"].items():
-            for subcriterion, subcriterion_data in criterion_data["subcriteria"].items():
+            for subcriterion, subcriterion_data in criterion_data[
+                "subcriteria"
+            ].items():
                 for evidence in subcriterion_data["evidence"]:
                     # Sanitize message for markdown
                     msg = evidence["message"]
@@ -396,12 +423,14 @@ class ReportProcessor:
                     msg = msg.replace(">", "_")
                     msg = msg.replace("\n", "<br />")
 
-                    report_results.append({
-                        "status": evidence["valid"],
-                        "assertion": msg,
-                        "subcriterion": subcriterion,
-                        "criterion": criterion,
-                    })
+                    report_results.append(
+                        {
+                            "status": evidence["valid"],
+                            "assertion": msg,
+                            "subcriterion": subcriterion,
+                            "criterion": criterion,
+                        }
+                    )
         return report_results
 
     def extract_badge_info(self, report_json: Dict[str, Any]) -> BadgeInfo:
@@ -420,7 +449,8 @@ class ReportProcessor:
         branch = repo_data["tag"]
 
         badge_shields_md = SHIELDS_BADGE_MARKDOWN.format(
-            repo=repo, branch=branch)
+            repo=repo, branch=branch
+        )
         badge_sqaaas_md: Optional[str] = None
         to_fulfill: List[str] = []
         next_level_badge = ""
@@ -429,7 +459,8 @@ class ReportProcessor:
             missing = badge_software["criteria"][badgeclass]["missing"]
             if not missing:
                 logger.debug(
-                    f"Not missing criteria: achieved {badgeclass} badge")
+                    f"Not missing criteria: achieved {badgeclass} badge"
+                )
                 badge_share_data = SYNERGY_BADGE_MARKDOWN[badgeclass]
                 badge_sqaaas_md = badge_share_data["sqaaas"].format(
                     repo=repo, branch=branch
@@ -447,7 +478,7 @@ class ReportProcessor:
             badge_sqaaas_md=badge_sqaaas_md,
             badge_shields_md=badge_shields_md,
             to_fulfill=to_fulfill,
-            next_level_badge=next_level_badge
+            next_level_badge=next_level_badge,
         )
 
     def generate_summary(self, report_json: Dict[str, Any]) -> str:
@@ -462,10 +493,12 @@ class ReportProcessor:
         report_results = self.extract_results(report_json)
         badge_info = self.extract_badge_info(report_json)
 
-        full_report_url = "/".join([
-            "https://sqaaas.eosc-synergy.eu/#/full-assessment/report",
-            report_json["meta"]["report_json_url"],
-        ])
+        full_report_url = "/".join(
+            [
+                "https://sqaaas.eosc-synergy.eu/#/full-assessment/report",
+                report_json["meta"]["report_json_url"],
+            ]
+        )
 
         template = jinja2.Environment().from_string(SUMMARY_TEMPLATE)
         return template.render(
@@ -499,7 +532,7 @@ def validate_repo_url(repo: str) -> bool:
 def create_payload(
     repo: str,
     branch: Optional[str] = None,
-    step_tools: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    step_tools: Optional[Dict[str, List[Dict[str, Any]]]] = None,
 ) -> str:
     """Create JSON payload for triggering SQAaaS assessment.
 
@@ -523,7 +556,7 @@ def create_payload(
     payload: Dict[str, Any] = {
         "repo_code": {
             "repo": repo,
-            "branch": branch or '',
+            "branch": branch or "",
         }
     }
     if step_tools:
@@ -539,7 +572,7 @@ def run_assessment(
     repo: str,
     branch: Optional[str] = None,
     step_tools: Optional[Dict[str, List[Dict[str, Any]]]] = None,
-    config: Optional[SQAaaSConfig] = None
+    config: Optional[SQAaaSConfig] = None,
 ) -> Dict[str, Any]:
     """Run SQAaaS assessment pipeline for a repository.
 
@@ -583,7 +616,8 @@ def run_assessment(
 
         if PipelineStatus.is_completed(build_status):
             logger.info(
-                f"Pipeline {pipeline_id} finished with status {build_status}")
+                f"Pipeline {pipeline_id} finished with status {build_status}"
+            )
             if not PipelineStatus.is_successful(build_status):
                 raise PipelineError(
                     f"Pipeline {pipeline_id} completed with failure status: {build_status}"
@@ -726,7 +760,8 @@ def main_github_action() -> None:
 
         # Run assessment
         sqaaas_report_json = run_assessment(
-            repo=repo, branch=branch, step_tools=step_tools)
+            repo=repo, branch=branch, step_tools=step_tools
+        )
 
         if sqaaas_report_json:
             logger.info("SQAaaS assessment data obtained. Creating summary..")
@@ -751,7 +786,9 @@ def main_github_action() -> None:
         sys.exit(ExitCode.GENERAL_ERROR.value)
 
 
-def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None) -> None:
+def setup_logging(
+    log_level: str = "INFO", log_file: Optional[str] = None
+) -> None:
     """Configure logging for the application.
 
     Args:
@@ -763,10 +800,11 @@ def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None) -> No
     # Configure root logger
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             logging.StreamHandler(sys.stderr),
-        ] + ([logging.FileHandler(log_file)] if log_file else [])
+        ]
+        + ([logging.FileHandler(log_file)] if log_file else []),
     )
 
     # Update module logger
@@ -782,10 +820,10 @@ def parse_arguments() -> argparse.Namespace:
         Parsed arguments namespace
     """
     parser = argparse.ArgumentParser(
-        prog='sqaaas-assess',
-        description='Run SQAaaS quality assessment on a repository',
+        prog="sqaaas-assess",
+        description="Run SQAaaS quality assessment on a repository",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
+        epilog="""
 Examples:
   %(prog)s https://github.com/user/repo
   %(prog)s https://github.com/user/repo -b develop -o report.json
@@ -805,21 +843,22 @@ Environment Variables:
   SQAAAS_POLL_INTERVAL - Status poll interval (overridden by --poll-interval)
   SQAAAS_MAX_RETRIES   - Maximum retry attempts (overridden by --max-retries)
   SQAAAS_RETRY_BACKOFF - Retry backoff multiplier (overridden by --retry-backoff)
-        '''
+        """,
     )
 
     # Positional arguments
     parser.add_argument(
-        'repo',
+        "repo",
         type=str,
-        help='Repository URL to assess (e.g., https://github.com/user/repo)'
+        help="Repository URL to assess (e.g., https://github.com/user/repo)",
     )
 
     # Optional arguments
     parser.add_argument(
-        '--branch', '-b',
+        "--branch",
+        "-b",
         type=str,
-        help='Branch name to assess (default: main or from git)'
+        help="Branch name to assess (default: main or from git)",
     )
     # parser.add_argument(
     #     '--endpoint', '-e',
@@ -827,17 +866,14 @@ Environment Variables:
     #     default='https://api-staging.sqaaas.eosc-synergy.eu/v1',
     #     help='SQAaaS API endpoint (default: %(default)s)'
     # )
+    parser.add_argument("--log-file", type=str, help="Write logs to file")
     parser.add_argument(
-        '--log-file',
+        "--log-level",
+        "-l",
         type=str,
-        help='Write logs to file'
-    )
-    parser.add_argument(
-        '--log-level', '-l',
-        type=str,
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        default='INFO',
-        help='Logging level (default: %(default)s)'
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Logging level (default: %(default)s)",
     )
     # parser.add_argument(
     #     '--max-retries', '-m',
@@ -846,9 +882,7 @@ Environment Variables:
     #     help='Maximum retry attempts (default: %(default)s)'
     # )
     parser.add_argument(
-        '--output', '-o',
-        type=str,
-        help='Output file for report JSON'
+        "--output", "-o", type=str, help="Output file for report JSON"
     )
     # parser.add_argument(
     #     '--poll-interval', '-p',
@@ -857,9 +891,7 @@ Environment Variables:
     #     help='Status poll interval in seconds (default: %(default)s)'
     # )
     parser.add_argument(
-        '--quiet', '-q',
-        action='store_true',
-        help='Suppress non-error output'
+        "--quiet", "-q", action="store_true", help="Suppress non-error output"
     )
     # parser.add_argument(
     #     '--retry-backoff',
@@ -868,14 +900,10 @@ Environment Variables:
     #     help='Retry backoff multiplier (default: %(default)s)'
     # )
     parser.add_argument(
-        '--steps-file',
-        type=str,
-        help='JSON file with custom QC.Uni steps'
+        "--steps-file", type=str, help="JSON file with custom QC.Uni steps"
     )
     parser.add_argument(
-        '--summary', '-s',
-        type=str,
-        help='Write markdown summary to file'
+        "--summary", "-s", type=str, help="Write markdown summary to file"
     )
     # parser.add_argument(
     #     '--timeout', '-t',
@@ -884,9 +912,7 @@ Environment Variables:
     #     help='Request timeout in seconds (default: %(default)s)'
     # )
     parser.add_argument(
-        '--version', '-v',
-        action='version',
-        version='%(prog)s 1.0.0'
+        "--version", "-v", action="version", version="%(prog)s 1.0.0"
     )
 
     return parser.parse_args()
@@ -908,7 +934,7 @@ def load_steps_from_file(steps_file: str) -> Dict[str, List[Dict[str, Any]]]:
     if not os.path.exists(steps_file):
         raise FileNotFoundError(f"Steps file not found: {steps_file}")
 
-    with open(steps_file, 'r') as f:
+    with open(steps_file, "r") as f:
         steps_data = json.load(f)
 
     return {"QC.Uni": [steps_data]}
@@ -946,7 +972,7 @@ def main_cli() -> None:
         sqaaas_report_json = run_assessment(
             repo=args.repo,
             branch=args.branch,
-            step_tools=step_tools  # ,
+            step_tools=step_tools,  # ,
             # config=config
         )
 
@@ -958,7 +984,7 @@ def main_cli() -> None:
 
         # Save report JSON if requested
         if args.output:
-            with open(args.output, 'w') as f:
+            with open(args.output, "w") as f:
                 json.dump(sqaaas_report_json, f, indent=2)
             logger.info(f"Report JSON saved to: {args.output}")
 
@@ -966,7 +992,7 @@ def main_cli() -> None:
         if args.summary:
             processor = ReportProcessor()
             summary = processor.generate_summary(sqaaas_report_json)
-            with open(args.summary, 'w') as f:
+            with open(args.summary, "w") as f:
                 f.write(summary)
             logger.info(f"Summary markdown saved to: {args.summary}")
 
@@ -978,8 +1004,11 @@ def main_cli() -> None:
 
     except (APIError, PipelineError, RepositoryError) as e:
         logger.error(f"Assessment error: {e}")
-        sys.exit(ExitCode.HTTP_ERROR.value if isinstance(
-            e, APIError) else ExitCode.GENERAL_ERROR.value)
+        sys.exit(
+            ExitCode.HTTP_ERROR.value
+            if isinstance(e, APIError)
+            else ExitCode.GENERAL_ERROR.value
+        )
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         sys.exit(ExitCode.GENERAL_ERROR.value)
